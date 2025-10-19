@@ -1,0 +1,13 @@
+import funkin.modding.base.ScriptedFlxRuntimeShader;
+
+class RadialCropShader extends ScriptedFlxRuntimeShader {
+	public function new() {
+		super(Assets.getText(Paths.frag('radialCrop')));
+		setPercent(0);
+	}
+
+	public function setPercent(value:Float):Void {
+		setFloat('percent', value);
+		// trace('Percent: ' + value);
+	}
+}

@@ -1,0 +1,139 @@
+import funkin.modding.base.ScriptedFlxRuntimeShader;
+
+import funkin.modding.module.Module;
+
+import funkin.graphics.FunkinSprite;
+
+import funkin.play.notes.Strumline;
+import funkin.play.notes.NoteSprite;
+import funkin.play.PlayState;
+
+import funkin.util.MathUtil;
+
+import funkin.Preferences;
+
+import flixel.math.FlxMath;
+
+import flixel.FlxG;
+
+import Math;
+
+class TurnTimer extends Module {
+	public function new() {
+		super('VSlice Turn Timer');
+	}
+	function greaterTimeCheck(oldTime:Float, newTime:Float):Float {
+		return newTime > oldTime ? newTime : oldTime;
+	}
+
+	var dialSprite:FunkinSprite;
+	var earliestPoint:Float = 0;
+	var latestPoint:Float = 0;
+	var radialCrop:ScriptedFlxRuntimeShader;
+
+	function stateOpen():Void {
+		earliestPoint = latestPoint = 0;
+		var path:String = 'dial-sprite' + switch (PlayState.instance.currentChart.noteStyle) {
+			case 'funkin': '';
+			default: '-' + PlayState.instance.currentChart.noteStyle;
+		}
+		PlayState.instance.add(dialSprite = FunkinSprite.create(0, 0, path));
+		dialSprite.cameras = [PlayState.instance.camHUD];
+		dialSprite.zIndex = 1002;
+		var scale:Float = Strumline.STRUMLINE_SIZE * 0.95;
+		dialSprite.setGraphicSize(scale, scale);
+		dialSprite.updateHitbox();
+		dialSprite.screenCenter();
+		dialSprite.x -= dialSprite.width / 2;
+		dialSprite.y = PlayState.instance.playerStrumline.y;
+		if (!Preferences.downscroll)
+			dialSprite.y += dialSprite.height / 2;
+		dialSprite.flipX = dialSprite.flipY = Preferences.downscroll;
+		radialCrop = ScriptedFlxRuntimeShader.init('RadialCropShader');
+		dialSprite.shader = radialCrop;
+		PlayState.instance.refresh();
+	}
+	function stateClose():Void {
+		dialSprite = null;
+	}
+
+	override public function onCountdownEnd(event):Void {
+		super.onCountdownEnd(event);
+		dialSprite.antialiasing = PlayState.instance.playerStrumline.strumlineNotes.members[0].antialiasing;
+		updateTiming();
+	}
+
+	override public function onUpdate(event):Void {
+		super.onUpdate(event);
+		if (PlayState.instance == null) return;
+		if (dialSprite != null && dialSprite.visible) {
+			var conductor = PlayState.instance.conductorInUse;
+			var calculatedStepDuration:Float = (latestPoint - earliestPoint) / conductor.stepLengthMs; // step count between points
+			var stepsPerMeasure:Float = conductor.timeSignatureDenominator * conductor.timeSignatureNumerator; // total steps per measure
+			var stepOffset:Float = 0.7; // shortens "stepsPerMeasure" amount by said amount of steps
+			/* trace(
+				calculatedStepDuration,
+				Math.max(stepsPerMeasure - stepOffset, 0), // Math.max used to prevent negative numbers
+				calculatedStepDuration < Math.max(stepsPerMeasure - stepOffset, 0) // final math
+			); */
+			var gapTooSmall = calculatedStepDuration < Math.max(stepsPerMeasure - stepOffset, 0);
+			if (!gapTooSmall) radialCrop.setPercent(FlxMath.remapToRange(conductor.songPosition, earliestPoint, latestPoint, 0, 1));
+			dialSprite.alpha = MathUtil.smoothLerpPrecision(dialSprite.alpha, gapTooSmall ? 0 : 1, event.elapsed, 0.3);
+		}
+	}
+
+	function updateTiming(?note:NoteSprite):Void {
+		if (dialSprite != null && dialSprite.visible) {
+			if (note == null) {
+				var newTime:Float = 0;
+				for (data in PlayState.instance.playerStrumline.noteData)
+					if (data.time > earliestPoint) {
+						newTime = data.time;
+						break;
+					}
+				latestPoint = greaterTimeCheck(latestPoint, newTime);
+			} else {
+				earliestPoint = greaterTimeCheck(earliestPoint, note.strumTime + note.length);
+				var newTime:Float = 0;
+				for (data in PlayState.instance.playerStrumline.noteData)
+					if (data.time > earliestPoint) {
+						newTime = data.time;
+						break;
+					}
+				latestPoint = greaterTimeCheck(latestPoint, newTime);
+			}
+		}
+	}
+
+	override public function onNoteHit(event):Void {
+		super.onNoteHit(event);
+		if (event.note.noteData.getMustHitNote())
+			updateTiming(event.note);
+	}
+	override public function onNoteMiss(event):Void {
+		super.onNoteMiss(event);
+		if (event.note.noteData.getMustHitNote())
+			updateTiming(event.note);
+	}
+
+	override public function onStateChangeEnd(event):Void {
+		super.onStateChangeEnd(event);
+		if (event.targetState is PlayState)
+			stateOpen();
+	}
+	override public function onStateChangeBegin(event):Void {
+		super.onStateChangeBegin(event);
+		if (event.targetState is PlayState)
+			stateClose();
+	}
+	override public function onSubStateOpenEnd(event):Void {
+		super.onSubStateOpenEnd(event);
+		if (event.targetState is PlayState)
+			stateOpen();
+	}
+	override public function onSubStateCloseEnd(event):Void {
+		super.onSubStateCloseEnd(event);
+		if (event.targetState is PlayState)
+			stateClose();
+	}
+}

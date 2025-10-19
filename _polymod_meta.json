@@ -1,0 +1,13 @@
+{
+	"title": "Turn Timer",
+	"description": "A turn timer for VSlice!",
+	"contributors": [
+		{
+			"name": "💜 Rodney, An Imaginative Furball 💙",
+			"role": "The only guy who worked on this.",
+			"url": "https://linktr.ee/rodney528"
+		}
+	],
+	"api_version": "0.7.5",
+	"mod_version": "0.1.0"
+}
