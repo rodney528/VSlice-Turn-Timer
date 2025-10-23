@@ -31,6 +31,10 @@ class TurnTimer extends Module {
 	var latestPoint:Float = 0;
 	var radialCrop:ScriptedFlxRuntimeShader;
 
+	override public function onRetrySong(event):Void {
+		super.onRetrySong(event);
+		earliestPoint = latestPoint = 0;
+	}
 	function stateOpen():Void {
 		earliestPoint = latestPoint = 0;
 		var path:String = 'dial-sprite' + switch (PlayState.instance.currentChart.noteStyle) {
